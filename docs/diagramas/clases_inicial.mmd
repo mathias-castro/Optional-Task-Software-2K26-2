@@ -1,0 +1,65 @@
+classDiagram
+    direction LR
+
+    class BaseModel {
+        <<pydantic>>
+    }
+
+    class Database {
+        +str path
+        +connect() Connection
+        +initialize()
+    }
+
+    class ProductInput {
+        +str name
+        +int price_cents
+        +int stock
+    }
+
+    class CustomerInput {
+        +str name
+        +EmailStr email
+        +Literal category
+    }
+
+    class ItemInput {
+        +int product_id
+        +int quantity
+    }
+
+    class OrderInput {
+        +int customer_id
+        +str address
+        +str city
+        +str postal_code
+        +Literal shipping
+        +list~ItemInput~ items
+        +unique_products() OrderInput
+    }
+
+    class OrderService {
+        +Database database
+        +save(customer_id, address, city, postal_code, shipping, items, order_id) dict
+        +quote(data) dict
+        +get(order_id) dict
+        +list() list
+        +confirm(order_id) dict
+        +cancel(order_id) dict
+        +delete(order_id)
+        +notifications(order_id) list
+    }
+
+    class HTTPException {
+        <<FastAPI>>
+    }
+
+    BaseModel <|-- ProductInput
+    BaseModel <|-- CustomerInput
+    BaseModel <|-- ItemInput
+    BaseModel <|-- OrderInput
+    OrderInput "1" *-- "1..100" ItemInput : items
+    OrderService --> "1" Database : database
+    OrderService ..> OrderInput : quote()
+    OrderService ..> ItemInput : save()
+    OrderService ..> HTTPException : lanza
