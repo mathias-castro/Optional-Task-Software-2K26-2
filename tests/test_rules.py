@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 from app.customers import CustomerInput
 from app.database import Database
-from app.orders import OrderInput, OrderService
+from app.orders import OrderInput, OrderService, calculate_totals
 from app.products import ProductInput
 
 
@@ -72,7 +72,7 @@ def test_total_is_subtotal_minus_discount_plus_shipping(service):
 @pytest.mark.parametrize("shipping", ["pickup", "standard", "express"])
 def test_saved_order_uses_same_totals_as_quote(service, shipping):
     data = order(add_customer(service, "business"), add_product(service, 3_333), quantity=3, shipping=shipping)
-    saved = service.save(data.customer_id, data.address, data.city, data.postal_code, data.shipping, data.items)
+    saved = service.create(data)
     quote = service.quote(data)
     assert {key: saved[key] for key in quote} == quote
 
@@ -127,3 +127,16 @@ def test_customer_input_validation():
         CustomerInput(name="Ana", email="no-es-correo")
     with pytest.raises(ValidationError):
         CustomerInput(name="Ana", email="ana@example.com", category="vip")
+
+
+@pytest.mark.parametrize("subtotal, category, shipping, expected", [
+    (5_000, "premium", "standard", (5_000, 500, 1_000, 5_500)),
+    (999, "business", "pickup", (999, 149, 0, 850)),
+    (9_999, "regular", "standard", (9_999, 0, 1_000, 10_999)),
+    (10_000, "business", "standard", (10_000, 1_500, 0, 8_500)),
+    (20_000, "regular", "express", (20_000, 0, 2_500, 22_500)),
+])
+def test_calculate_totals(subtotal, category, shipping, expected):
+    totals = calculate_totals(subtotal, category, shipping)
+    assert tuple(totals.values()) == expected
+    assert list(totals) == ["subtotal_cents", "discount_cents", "shipping_cents", "total_cents"]
